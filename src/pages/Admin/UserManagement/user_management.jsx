@@ -1,164 +1,233 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getMoviesApi, deleteMovieApi } from "../../../services/admin.api";
+import {
+  getUsersApi,
+  deleteUserApi,
+  getUserTypesApi,
+} from "../../../services/admin.api";
 
-export default function MovieManagement() {
+export default function UserManagement() {
   const navigate = useNavigate();
-  const [movies, setMovies] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [userTypes, setUserTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [selectedMovies, setSelectedMovies] = useState([]);
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [filterRole, setFilterRole] = useState("all");
 
   useEffect(() => {
-    fetchMovies();
+    fetchUsers();
+    fetchUserTypes();
   }, [currentPage]);
 
-  const fetchMovies = async () => {
+  const fetchUsers = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await getMoviesApi("GP01", currentPage, 10);
-      setMovies(response.items || []);
+      const response = await getUsersApi("GP01", currentPage, 10);
+      setUsers(response.items || []);
       setTotalPages(Math.ceil((response.totalCount || 0) / 10));
     } catch (error) {
-      console.error("Error fetching movies:", error);
-      setError("Không thể tải danh sách phim");
+      console.error("Error fetching users:", error);
+      setError("Không thể tải danh sách người dùng");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteMovie = async (maPhim, tenPhim) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa phim "${tenPhim}"?`)) {
+  const fetchUserTypes = async () => {
+    try {
+      const response = await getUserTypesApi();
+      setUserTypes(response.content || []);
+    } catch (error) {
+      console.error("Error fetching user types:", error);
+    }
+  };
+
+  const handleDeleteUser = async (taiKhoan, hoTen) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa người dùng "${hoTen}"?`)) {
       return;
     }
 
     try {
-      await deleteMovieApi(maPhim);
-      alert("Xóa phim thành công!");
-      fetchMovies();
+      console.log("🗑️ Deleting user:", taiKhoan, hoTen);
+      await deleteUserApi(taiKhoan);
+      alert("Xóa người dùng thành công!");
+      fetchUsers();
     } catch (error) {
-      console.error("Error deleting movie:", error);
-      alert("Có lỗi xảy ra khi xóa phim!");
+      console.error("❌ Error deleting user:", error);
+
+      // Enhanced error handling
+      let errorMessage = "Có lỗi xảy ra khi xóa người dùng";
+
+      if (error.response?.data?.content) {
+        const errorContent = error.response.data.content;
+        if (typeof errorContent === "string") {
+          errorMessage = errorContent;
+        } else if (errorContent.message) {
+          errorMessage = errorContent.message;
+        }
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      alert(errorMessage);
     }
   };
 
   const handleBulkDelete = async () => {
-    if (selectedMovies.length === 0) {
-      alert("Vui lòng chọn ít nhất một phim để xóa!");
+    if (selectedUsers.length === 0) {
+      alert("Vui lòng chọn ít nhất một người dùng để xóa!");
       return;
     }
 
     if (
       !window.confirm(
-        `Bạn có chắc chắn muốn xóa ${selectedMovies.length} phim đã chọn?`
+        `Bạn có chắc chắn muốn xóa ${selectedUsers.length} người dùng đã chọn?`
       )
     ) {
       return;
     }
 
     try {
-      for (const maPhim of selectedMovies) {
-        await deleteMovieApi(maPhim);
+      console.log("🗑️ Bulk deleting users:", selectedUsers);
+      for (const taiKhoan of selectedUsers) {
+        await deleteUserApi(taiKhoan);
       }
-      alert("Xóa phim thành công!");
-      setSelectedMovies([]);
-      fetchMovies();
+      alert("Xóa người dùng thành công!");
+      setSelectedUsers([]);
+      fetchUsers();
     } catch (error) {
-      console.error("Error bulk deleting movies:", error);
-      alert("Có lỗi xảy ra khi xóa phim!");
+      console.error("❌ Error bulk deleting users:", error);
+
+      // Enhanced error handling
+      let errorMessage = "Có lỗi xảy ra khi xóa người dùng";
+
+      if (error.response?.data?.content) {
+        const errorContent = error.response.data.content;
+        if (typeof errorContent === "string") {
+          errorMessage = errorContent;
+        } else if (errorContent.message) {
+          errorMessage = errorContent.message;
+        }
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      alert(errorMessage);
     }
   };
 
-  const handleSelectAll = (checked) => {
+  const handleSelectUser = (taiKhoan, checked) => {
     if (checked) {
-      setSelectedMovies(movies.map((movie) => movie.maPhim));
+      setSelectedUsers([...selectedUsers, taiKhoan]);
     } else {
-      setSelectedMovies([]);
+      setSelectedUsers(selectedUsers.filter((id) => id !== taiKhoan));
     }
   };
 
-  const handleSelectMovie = (maPhim, checked) => {
-    if (checked) {
-      setSelectedMovies([...selectedMovies, maPhim]);
-    } else {
-      setSelectedMovies(selectedMovies.filter((id) => id !== maPhim));
-    }
+  const getUserTypeName = (maLoaiNguoiDung) => {
+    const type = userTypes.find((t) => t.maLoaiNguoiDung === maLoaiNguoiDung);
+    return type ? type.tenLoai : "N/A";
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("vi-VN");
-    } catch {
-      return dateString;
-    }
-  };
+  const getRoleBadge = (maLoaiNguoiDung) => {
+    const roleName = getUserTypeName(maLoaiNguoiDung);
 
-  const getStatusBadge = (sapChieu, dangChieu) => {
-    if (dangChieu) {
+    if (maLoaiNguoiDung === "QuanTri") {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-          Đang chiếu
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+          {roleName}
         </span>
       );
-    } else if (sapChieu) {
+    } else if (maLoaiNguoiDung === "KhachHang") {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-          Sắp chiếu
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          {roleName}
         </span>
       );
     } else {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-          Không xác định
+          {roleName}
         </span>
       );
     }
   };
 
-  const filteredMovies = movies.filter((movie) => {
-    const matchesSearch =
-      movie.tenPhim?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      movie.moTa?.toLowerCase().includes(searchTerm.toLowerCase());
+  const getStatusBadge = (status) => {
+    if (status === "active" || status === true) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          Hoạt động
+        </span>
+      );
+    } else {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          Không hoạt động
+        </span>
+      );
+    }
+  };
 
-    if (filterStatus === "all") return matchesSearch;
-    if (filterStatus === "showing") return matchesSearch && movie.dangChieu;
-    if (filterStatus === "coming") return matchesSearch && movie.sapChieu;
-    if (filterStatus === "hot") return matchesSearch && movie.hot;
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
+      user.hoTen?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.taiKhoan?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    if (filterRole === "all") return matchesSearch;
+    if (filterRole === "admin")
+      return matchesSearch && user.maLoaiNguoiDung === "QuanTri";
+    if (filterRole === "customer")
+      return matchesSearch && user.maLoaiNguoiDung === "KhachHang";
 
     return matchesSearch;
   });
+
+  const getInitials = (name) => {
+    if (!name) return "U";
+    return name
+      .split(" ")
+      .map((word) => word.charAt(0))
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   return (
     <div className="max-w-6xl mx-auto p-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Quản lý phim</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Quản lý người dùng
+        </h1>
         <p className="text-gray-600">
-          Quản lý tất cả phim trong hệ thống ({movies.length} phim)
+          Quản lý tất cả người dùng trong hệ thống ({users.length} người dùng)
         </p>
       </div>
-
       {/* Actions */}
       <div className="mb-6 flex flex-col sm:flex-row gap-4">
         <button
-          onClick={() => navigate("/admin/add-movie")}
+          onClick={() => navigate("/admin/add-user")}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
-          Thêm phim mới
+          Thêm người dùng
         </button>
-        {selectedMovies.length > 0 && (
+        {selectedUsers.length > 0 && (
           <button
             onClick={handleBulkDelete}
             className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
-            Xóa ({selectedMovies.length})
+            Xóa ({selectedUsers.length})
           </button>
         )}
       </div>
@@ -169,31 +238,30 @@ export default function MovieManagement() {
           {/* Search */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tìm kiếm phim
+              Tìm kiếm người dùng
             </label>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Nhập tên phim hoặc mô tả..."
+              placeholder="Nhập tên, tài khoản hoặc email..."
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
-          {/* Status Filter */}
+          {/* Role Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Trạng thái
+              Vai trò
             </label>
             <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              value={filterRole}
+              onChange={(e) => setFilterRole(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">Tất cả</option>
-              <option value="showing">Đang chiếu</option>
-              <option value="coming">Sắp chiếu</option>
-              <option value="hot">Phim hot</option>
+              <option value="admin">Quản trị viên</option>
+              <option value="customer">Khách hàng</option>
             </select>
           </div>
 
@@ -206,13 +274,13 @@ export default function MovieManagement() {
               <option value="newest">Mới nhất</option>
               <option value="oldest">Cũ nhất</option>
               <option value="name">Tên A-Z</option>
-              <option value="rating">Đánh giá cao</option>
+              <option value="role">Theo vai trò</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Movies List */}
+      {/* Users List */}
       {loading ? (
         <div className="flex justify-center items-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -239,13 +307,13 @@ export default function MovieManagement() {
           </h3>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={fetchMovies}
+            onClick={fetchUsers}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             Thử lại
           </button>
         </div>
-      ) : filteredMovies.length === 0 ? (
+      ) : filteredUsers.length === 0 ? (
         <div className="text-center py-12">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg
@@ -258,36 +326,36 @@ export default function MovieManagement() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth="2"
-                d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m-9 0h10m-10 0a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2"
+                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
               />
             </svg>
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Không có phim nào
+            Không có người dùng nào
           </h3>
           <p className="text-gray-600 mb-4">
             {searchTerm
-              ? "Không tìm thấy phim phù hợp với từ khóa tìm kiếm."
-              : "Chưa có phim nào trong hệ thống."}
+              ? "Không tìm thấy người dùng phù hợp với từ khóa tìm kiếm."
+              : "Chưa có người dùng nào trong hệ thống."}
           </p>
           <button
-            onClick={() => navigate("/admin/add-movie")}
+            onClick={() => navigate("/admin/add-user")}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            Thêm phim đầu tiên
+            Thêm người dùng đầu tiên
           </button>
         </div>
       ) : (
         <>
           {/* Bulk Actions */}
-          {selectedMovies.length > 0 && (
+          {selectedUsers.length > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <div className="flex items-center justify-between">
                 <span className="text-blue-800 font-medium">
-                  Đã chọn {selectedMovies.length} phim
+                  Đã chọn {selectedUsers.length} người dùng
                 </span>
                 <button
-                  onClick={() => setSelectedMovies([])}
+                  onClick={() => setSelectedUsers([])}
                   className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                 >
                   Bỏ chọn tất cả
@@ -296,107 +364,82 @@ export default function MovieManagement() {
             </div>
           )}
 
-          {/* Movies List */}
+          {/* Users List */}
           <div className="space-y-4">
-            {filteredMovies.map((movie) => (
+            {filteredUsers.map((user) => (
               <div
-                key={movie.maPhim}
+                key={user.taiKhoan}
                 className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow"
               >
                 <div className="flex items-start space-x-4">
                   {/* Checkbox */}
                   <input
                     type="checkbox"
-                    checked={selectedMovies.includes(movie.maPhim)}
+                    checked={selectedUsers.includes(user.taiKhoan)}
                     onChange={(e) =>
-                      handleSelectMovie(movie.maPhim, e.target.checked)
+                      handleSelectUser(user.taiKhoan, e.target.checked)
                     }
                     className="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 mt-1"
                   />
 
-                  {/* Movie Image */}
+                  {/* User Avatar */}
                   <div className="flex-shrink-0">
-                    <img
-                      src={movie.hinhAnh}
-                      alt={movie.tenPhim}
-                      className="w-20 h-28 object-cover rounded-lg"
-                      onError={(e) => {
-                        e.target.src =
-                          "https://via.placeholder.com/80x112?text=No+Image";
-                      }}
-                    />
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-lg">
+                        {getInitials(user.hoTen)}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Movie Info */}
+                  {/* User Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                          {movie.tenPhim}
+                          {user.hoTen || "Không có tên"}
                         </h3>
-                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                          {movie.moTa || "Không có mô tả"}
+                        <p className="text-sm text-gray-600 mb-3">
+                          @{user.taiKhoan}
                         </p>
 
                         <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
-                          <span>Đánh giá: {movie.danhGia}/10</span>
+                          <span>📧 {user.email || "Không có email"}</span>
                           <span>
-                            Ngày chiếu: {formatDate(movie.ngayKhoiChieu)}
+                            📞 {user.soDT || "Không có số điện thoại"}
                           </span>
                         </div>
 
                         <div className="flex items-center space-x-2">
-                          {getStatusBadge(movie.sapChieu, movie.dangChieu)}
-                          {movie.hot && (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                              HOT
-                            </span>
-                          )}
+                          {getRoleBadge(user.maLoaiNguoiDung)}
+                          {getStatusBadge(user.trangThai)}
                         </div>
+
+                        {user.ngaySinh && (
+                          <div className="mt-2 text-sm text-gray-500">
+                            Ngày sinh:{" "}
+                            {new Date(user.ngaySinh).toLocaleDateString(
+                              "vi-VN"
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Actions */}
                       <div className="flex items-center space-x-2 ml-4">
                         <button
                           onClick={() =>
-                            navigate(`/admin/edit-movie/${movie.maPhim}`)
+                            navigate(`/admin/edit-user/${user.taiKhoan}`)
                           }
                           className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
                         >
                           Sửa
                         </button>
-                        <button
-                          onClick={() =>
-                            navigate(`/admin/create-showtime/${movie.maPhim}`)
-                          }
-                          className="px-3 py-1.5 text-sm font-medium text-purple-600 bg-purple-50 rounded-md hover:bg-purple-100 transition-colors"
-                          title="Tạo lịch chiếu"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                            />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() =>
-                            navigate(`/movie-details/${movie.maPhim}`)
-                          }
-                          className="px-3 py-1.5 text-sm font-medium text-green-600 bg-green-50 rounded-md hover:bg-green-100 transition-colors"
-                        >
+                        <button className="px-3 py-1.5 text-sm font-medium text-green-600 bg-green-50 rounded-md hover:bg-green-100 transition-colors">
                           Xem
                         </button>
                         <button
                           onClick={() =>
-                            handleDeleteMovie(movie.maPhim, movie.tenPhim)
+                            handleDeleteUser(user.taiKhoan, user.hoTen)
                           }
                           className="px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100 transition-colors"
                         >
@@ -420,10 +463,10 @@ export default function MovieManagement() {
                 </span>{" "}
                 đến{" "}
                 <span className="font-medium">
-                  {Math.min(currentPage * 10, filteredMovies.length)}
+                  {Math.min(currentPage * 10, filteredUsers.length)}
                 </span>{" "}
                 trong tổng số{" "}
-                <span className="font-medium">{filteredMovies.length}</span> kết
+                <span className="font-medium">{filteredUsers.length}</span> kết
                 quả
               </div>
               <div className="flex space-x-2">

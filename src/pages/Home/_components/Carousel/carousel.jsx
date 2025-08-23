@@ -14,7 +14,8 @@ export default function Carousel({ isDarkMode = false }) {
     },
     {
       id: 2,
-      image: "https://cdn.galaxycine.vn/media/2025/7/30/2048_1753846801447.jpg",
+      image:
+        "https://cdn.galaxycine.vn/media/2025/7/21/mang-me-di-bo-2048_1753070307369.jpg",
       title: "2048",
       subtitle: "Now Showing",
       description: "Tương lai đang chờ đợi bạn",
@@ -22,7 +23,7 @@ export default function Carousel({ isDarkMode = false }) {
     {
       id: 3,
       image:
-        "https://cdn.galaxycine.vn/media/2025/8/2/malto-2048x682_1754122812692.jpg",
+        "https://cdn.galaxycine.vn/media/2025/8/1/chot-don-2048_1754023401037.jpg",
       title: "MALTO",
       subtitle: "Coming Soon",
       description: "Cuộc phiêu lưu mới đang bắt đầu",

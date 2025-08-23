@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Film,
   Users,
@@ -9,49 +9,85 @@ import {
   Eye,
   Clock,
 } from "lucide-react";
+import { getStatisticsApi, getMoviesApi } from "../../../services/admin.api";
 
 export default function Dashboard() {
-  const stats = [
-    {
-      title: "Phim đang chiếu",
-      value: "120",
-      icon: Film,
-      gradient: "from-purple-600 to-purple-400",
-      change: "+12%",
-      trend: "up",
-      bg: "bg-purple-50",
-      iconBg: "bg-purple-100",
-    },
-    {
-      title: "Người dùng",
-      value: "3,500",
-      icon: Users,
-      gradient: "from-blue-600 to-blue-400",
-      change: "+23%",
-      trend: "up",
-      bg: "bg-blue-50",
-      iconBg: "bg-blue-100",
-    },
-    {
-      title: "Rạp chiếu",
-      value: "15",
-      icon: MapPin,
-      gradient: "from-emerald-600 to-emerald-400",
-      change: "+2",
-      trend: "up",
-      bg: "bg-emerald-50",
-      iconBg: "bg-emerald-100",
-    },
-  ];
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState([]);
+  const [recentMovies, setRecentMovies] = useState([]);
+  const [statistics, setStatistics] = useState({});
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch statistics
+        const statsData = await getStatisticsApi();
+        setStatistics(statsData);
+        
+        // Fetch recent movies
+        const moviesData = await getMoviesApi("GP01", 1, 5);
+        setRecentMovies(moviesData.items || []);
+        
+        // Create stats cards
+        const statsCards = [
+          {
+            title: "Tổng số phim",
+            value: statsData.totalMovies?.toString() || "0",
+            icon: Film,
+            gradient: "from-purple-600 to-purple-400",
+            change: "+12%",
+            trend: "up",
+            bg: "bg-purple-50",
+            iconBg: "bg-purple-100",
+          },
+          {
+            title: "Phim đang chiếu",
+            value: statsData.showingMovies?.toString() || "0",
+            icon: Calendar,
+            gradient: "from-green-600 to-green-400",
+            change: "+5%",
+            trend: "up",
+            bg: "bg-green-50",
+            iconBg: "bg-green-100",
+          },
+          {
+            title: "Phim sắp chiếu",
+            value: statsData.comingSoonMovies?.toString() || "0",
+            icon: Clock,
+            gradient: "from-orange-600 to-orange-400",
+            change: "+8%",
+            trend: "up",
+            bg: "bg-orange-50",
+            iconBg: "bg-orange-100",
+          },
+        ];
+        
+        setStats(statsCards);
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   const quickMetrics = [
     {
       label: "Doanh thu hôm nay",
-      value: "₫2.4M",
+      value: `₫${statistics.totalRevenue || "2.4M"}`,
       icon: TrendingUp,
       color: "text-green-600",
     },
-    { label: "Lượt xem", value: "12.5K", icon: Eye, color: "text-blue-600" },
+    { 
+      label: "Lượt xem", 
+      value: statistics.totalViews || "12.5K", 
+      icon: Eye, 
+      color: "text-blue-600" 
+    },
     {
       label: "Thời gian TB",
       value: "2h 15m",
@@ -60,11 +96,22 @@ export default function Dashboard() {
     },
     {
       label: "Đánh giá TB",
-      value: "4.8",
+      value: statistics.averageRating || "4.8",
       icon: Star,
       color: "text-yellow-500",
     },
   ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -150,6 +197,48 @@ export default function Dashboard() {
         })}
       </div>
 
+      {/* Recent Activity */}
+      <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+        <h3 className="text-xl font-bold text-gray-900 mb-6">
+          Hoạt động gần đây
+        </h3>
+        <div className="space-y-4">
+          {[
+            {
+              action: "Thêm phim mới",
+              movie: "Spider-Man: No Way Home",
+              time: "2 giờ trước",
+            },
+            {
+              action: "Cập nhật lịch chiếu",
+              movie: "The Batman",
+              time: "4 giờ trước",
+            },
+            {
+              action: "Thêm người dùng",
+              movie: "user123",
+              time: "6 giờ trước",
+            },
+            { action: "Xóa phim", movie: "Old Movie", time: "1 ngày trước" },
+          ].map((activity, index) => (
+            <div
+              key={index}
+              className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-900">
+                  {activity.action}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {activity.movie} • {activity.time}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Revenue Chart */}
@@ -178,47 +267,48 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Popular Movies */}
+        {/* Recent Movies */}
         <div className="bg-white rounded-2xl shadow-lg p-6">
           <h3 className="text-xl font-bold text-gray-900 mb-6">
-            Phim phổ biến
+            Phim gần đây
           </h3>
           <div className="space-y-4">
-            {[
-              { name: "Spider-Man: No Way Home", rating: 4.9, views: "2.1K" },
-              { name: "The Batman", rating: 4.7, views: "1.8K" },
-              { name: "Doctor Strange 2", rating: 4.6, views: "1.5K" },
-              { name: "Top Gun: Maverick", rating: 4.8, views: "1.3K" },
-            ].map((movie, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-pink-500 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">
-                      {index + 1}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{movie.name}</p>
-                    <div className="flex items-center space-x-2">
-                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="text-sm text-gray-600">
-                        {movie.rating}
+            {recentMovies.length > 0 ? (
+              recentMovies.map((movie, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-pink-500 rounded-lg flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">
+                        {index + 1}
                       </span>
-                      <span className="text-sm text-gray-400">•</span>
-                      <span className="text-sm text-gray-600">
-                        {movie.views} lượt xem
-                      </span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">{movie.tenPhim}</p>
+                      <div className="flex items-center space-x-2">
+                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                        <span className="text-sm text-gray-600">
+                          {movie.danhGia || "N/A"}
+                        </span>
+                        <span className="text-sm text-gray-400">•</span>
+                        <span className="text-sm text-gray-600">
+                          {movie.sapChieu ? "Sắp chiếu" : "Đang chiếu"}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">Không có dữ liệu phim</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
+       </div>
+     </div>
+   );
+ }

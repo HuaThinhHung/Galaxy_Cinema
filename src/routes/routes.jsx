@@ -12,7 +12,15 @@ import DashBoard from "../pages/Admin/DashBoard/dasb_board.jsx";
 import AddUser from "../pages/Admin/AddUser/add_user.jsx";
 import MovieManagement from "../pages/Admin/MoiveManagement/movie_managenment.jsx";
 import AddMovie from "../pages/Admin/AddMovie/add_movie.jsx";
+import EditMovie from "../pages/Admin/EditMovie/edit_movie.jsx";
+import UserManagement from "../pages/Admin/UserManagement/user_management.jsx";
+import EditUser from "../pages/Admin/EditUser/edit_user.jsx";
 import AuthPage from "../pages/Admin/AuthPage/auth_page.jsx";
+import Placeholder from "../pages/Admin/Placeholder/placeholder.jsx";
+import UserInfoDebug from "../components/UserInfoDebug.jsx";
+import CreateShowtime from "../pages/Admin/CreateShowtime/create_showtime.jsx";
+import ShowtimeManagement from "../pages/Admin/ShowtimeManagement/showtime_management.jsx";
+
 import { Route } from "react-router-dom";
 
 const routes = [
@@ -55,6 +63,10 @@ const routes = [
     element: Admin,
     nested: [
       {
+        path: "",
+        element: DashBoard,
+      },
+      {
         path: "dashboard",
         element: DashBoard,
       },
@@ -67,8 +79,58 @@ const routes = [
         element: MovieManagement,
       },
       {
-        path: "movie-management/add-movie",
+        path: "add-movie",
         element: AddMovie,
+      },
+      {
+        path: "movie-management/edit/:maPhim",
+        element: EditMovie,
+      },
+      {
+        path: "edit-movie/:maPhim",
+        element: EditMovie,
+      },
+      {
+        path: "user-management",
+        element: UserManagement,
+      },
+      {
+        path: "user-management/edit/:taiKhoan",
+        element: EditUser,
+      },
+      {
+        path: "edit-user/:taiKhoan",
+        element: EditUser,
+      },
+      {
+        path: "create-showtime/:maPhim",
+        element: CreateShowtime,
+      },
+      {
+        path: "theater-management",
+        element: () => (
+          <Placeholder
+            title="Quản lý rạp chiếu"
+            description="Quản lý hệ thống rạp chiếu và phòng chiếu"
+          />
+        ),
+      },
+      {
+        path: "showtime-management",
+        element: ShowtimeManagement,
+      },
+      {
+        path: "analytics",
+        element: () => (
+          <Placeholder
+            title="Thống kê & Báo cáo"
+            description="Xem báo cáo doanh thu và thống kê"
+          />
+        ),
+      },
+      {
+        path: "debug-user",
+        element: UserInfoDebug,
       },
     ],
   },

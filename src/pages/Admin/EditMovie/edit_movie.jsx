@@ -1,14 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { format } from "date-fns";
-import z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import z from "zod";
+import { format } from "date-fns";
+import { useParams, useNavigate } from "react-router-dom";
 import {
-  addMovieApi,
-  addMovieWithoutImageApi,
-  addMovieAlternativeApi,
-  testApiConnection,
-  testAddMovieApi,
+  getMovieByIdApi,
+  getMovieByIdAlternativeApi,
+  updateMovieApi,
+  checkMovieNameExistsApi,
 } from "../../../services/admin.api";
 
 const schema = z.object({
@@ -18,15 +18,26 @@ const schema = z.object({
   ngayKhoiChieu: z.string().min(1, "Vui lòng chọn ngày khởi chiếu"),
   trangThai: z.string().optional(),
   Hot: z.boolean().optional(),
-  maNhom: z.string().default("GP01"),
-  danhGia: z.string().regex(/^([0-9]|10)$/, "Vui lòng nhập số từ 0-10"),
+  danhGia: z
+    .string()
+    .min(1, "Vui lòng nhập đánh giá")
+    .refine(
+      (val) => !isNaN(Number(val)) && Number(val) >= 0 && Number(val) <= 10,
+      {
+        message: "Đánh giá phải là số từ 0 đến 10",
+      }
+    ),
+  maNhom: z.string().optional(),
   hinhAnh: z.any().optional(),
 });
 
-export default function AddMovie() {
+export default function EditMovie() {
+  const { maPhim } = useParams();
+  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [movie, setMovie] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [debugInfo, setDebugInfo] = useState(null);
 
   const {
     register,
@@ -49,6 +60,92 @@ export default function AddMovie() {
     resolver: zodResolver(schema),
   });
 
+  useEffect(() => {
+    const fetchMovie = async () => {
+      try {
+        setLoading(true);
+        console.log("🔍 Fetching movie with ID:", maPhim);
+
+        let movieData;
+        try {
+          // Try primary API first
+          movieData = await getMovieByIdApi(maPhim);
+          console.log("✅ Movie data received from primary API:", movieData);
+        } catch (primaryError) {
+          console.log("⚠️ Primary API failed, trying alternative...");
+          // Try alternative API
+          movieData = await getMovieByIdAlternativeApi(maPhim);
+          console.log(
+            "✅ Movie data received from alternative API:",
+            movieData
+          );
+        }
+
+        setMovie(movieData);
+
+        // Parse date from dd/MM/yyyy to yyyy-MM-dd for input
+        let formattedDate = "";
+        if (movieData.ngayKhoiChieu) {
+          try {
+            const dateParts = movieData.ngayKhoiChieu.split("/");
+            const parsedDate = new Date(
+              dateParts[2],
+              dateParts[1] - 1,
+              dateParts[0]
+            );
+            formattedDate = format(parsedDate, "yyyy-MM-dd");
+          } catch (dateError) {
+            console.error("Date parsing error:", dateError);
+            // Try to parse ISO date format
+            try {
+              formattedDate = format(
+                new Date(movieData.ngayKhoiChieu),
+                "yyyy-MM-dd"
+              );
+            } catch {
+              formattedDate = "";
+            }
+          }
+        }
+
+        // Set form values
+        setValue("tenPhim", movieData.tenPhim || "");
+        setValue("trailer", movieData.trailer || "");
+        setValue("moTa", movieData.moTa || "");
+        setValue("ngayKhoiChieu", formattedDate);
+        setValue("trangThai", movieData.sapChieu ? "false" : "true");
+        setValue("Hot", movieData.hot || false);
+        setValue("maNhom", movieData.maNhom || "GP01");
+        setValue("danhGia", movieData.danhGia?.toString() || "0");
+
+        // Set image preview
+        setImagePreview(movieData.hinhAnh || null);
+
+        console.log("✅ Form values set successfully");
+      } catch (error) {
+        console.error("❌ Error fetching movie:", error);
+        console.error("Error details:", {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+        });
+
+        alert(
+          `Không thể tải thông tin phim!\nLỗi: ${
+            error.response?.data?.content || error.message
+          }`
+        );
+        navigate("/admin/movie-management");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (maPhim) {
+      fetchMovie();
+    }
+  }, [maPhim, setValue, navigate]);
+
   const handleImageChange = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -61,7 +158,7 @@ export default function AddMovie() {
 
   const removeImage = () => {
     setValue("hinhAnh", null);
-    setImagePreview(null);
+    setImagePreview(movie?.hinhAnh || null);
   };
 
   const onSubmit = async (values) => {
@@ -69,114 +166,101 @@ export default function AddMovie() {
       setIsSubmitting(true);
       console.log("Form values:", values);
 
-      // Kiểm tra kết nối API trước
-      try {
-        console.log("🔍 Kiểm tra kết nối API...");
-        await testApiConnection();
-        console.log("✅ Kết nối API thành công");
-      } catch (error) {
-        console.error("❌ Kết nối API thất bại:", error);
-        alert("Không thể kết nối đến API. Vui lòng kiểm tra lại!");
-        return;
+      // Kiểm tra tên phim có thay đổi không
+      const isNameChanged = values.tenPhim !== movie.tenPhim;
+
+      if (isNameChanged) {
+        // Kiểm tra xem tên phim mới có tồn tại trong hệ thống không
+        const nameExists = await checkMovieNameExistsApi(
+          values.tenPhim,
+          maPhim
+        );
+
+        if (nameExists) {
+          alert("Tên phim đã tồn tại trong hệ thống. Vui lòng chọn tên khác.");
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       const { trangThai, Hot, ...rest } = values;
 
       const newValues = {
         ...rest,
+        maPhim: maPhim,
         SapChieu: trangThai === "false",
         DangChieu: trangThai === "true",
         Hot: Hot === true,
       };
 
-      // Chuẩn bị dữ liệu phim
-      const movieData = {
-        tenPhim: newValues.tenPhim,
-        trailer: newValues.trailer,
-        moTa: newValues.moTa,
-        danhGia: newValues.danhGia,
-        SapChieu: newValues.SapChieu,
-        DangChieu: newValues.DangChieu,
-        ngayKhoiChieu: format(new Date(newValues.ngayKhoiChieu), "dd/MM/yyyy"),
-        maNhom: newValues.maNhom,
-        Hot: newValues.Hot,
-      };
+      const formData = new FormData();
 
-      // Thử API 1: /api/QuanLyPhim/ThemPhimUploadHinh (với FormData) - API chính
-      if (newValues.hinhAnh) {
-        try {
-          console.log(
-            "🔄 Thử API 1: /api/QuanLyPhim/ThemPhimUploadHinh (với hình)..."
-          );
-          const formData = new FormData();
-
-          formData.append("tenPhim", newValues.tenPhim);
-          formData.append("trailer", newValues.trailer);
-          formData.append("moTa", newValues.moTa);
-          formData.append("danhGia", newValues.danhGia);
-          formData.append("SapChieu", newValues.SapChieu);
-          formData.append("DangChieu", newValues.DangChieu);
-          formData.append(
-            "ngayKhoiChieu",
-            format(new Date(newValues.ngayKhoiChieu), "dd/MM/yyyy")
-          );
-          formData.append("maNhom", newValues.maNhom);
-          formData.append("hinhAnh", newValues.hinhAnh);
-
-          const response = await addMovieApi(formData);
-          console.log("✅ API 1 thành công:", response);
-          alert("Thêm phim thành công! (Với hình ảnh)");
-          reset();
-          setImagePreview(null);
-          return;
-        } catch (error) {
-          console.error("❌ API 1 thất bại:", error);
-        }
-      }
-
-      // Thử API 2: /api/QuanLyPhim (query parameters) - API không hình
-      try {
-        console.log("🔄 Thử API 2: /api/QuanLyPhim (query parameters)...");
-        const response = await addMovieWithoutImageApi(movieData);
-        console.log("✅ API 2 thành công:", response);
-        alert("Thêm phim thành công! (Không có hình)");
-        reset();
-        setImagePreview(null);
-        return;
-      } catch (error) {
-        console.error("❌ API 2 thất bại:", error);
-      }
-
-      // Thử API 3: /api/QuanLyPhim/ThemPhimUploadHinh (JSON format) - thử nghiệm
-      try {
-        console.log(
-          "🔄 Thử API 3: /api/QuanLyPhim/ThemPhimUploadHinh (JSON format)..."
-        );
-        const response = await testAddMovieApi(movieData);
-        console.log("✅ API 3 thành công:", response);
-        alert("Thêm phim thành công! (JSON format)");
-        reset();
-        setImagePreview(null);
-        return;
-      } catch (error) {
-        console.error("❌ API 3 thất bại:", error);
-      }
-
-      // Nếu tất cả API đều thất bại
-      throw new Error(
-        "Tất cả các API thêm phim đều thất bại. Vui lòng kiểm tra lại thông tin."
+      formData.append("maPhim", newValues.maPhim);
+      formData.append("tenPhim", newValues.tenPhim);
+      formData.append("trailer", newValues.trailer);
+      formData.append("moTa", newValues.moTa);
+      formData.append("danhGia", newValues.danhGia);
+      formData.append("SapChieu", newValues.SapChieu);
+      formData.append("DangChieu", newValues.DangChieu);
+      formData.append(
+        "ngayKhoiChieu",
+        format(new Date(newValues.ngayKhoiChieu), "dd/MM/yyyy")
       );
-    } catch (error) {
-      console.error("Error adding movie:", error);
+      formData.append("maNhom", newValues.maNhom);
 
-      let errorMessage = "Có lỗi xảy ra khi thêm phim";
+      // Only append image if a new one is selected
+      if (newValues.hinhAnh) {
+        formData.append("hinhAnh", newValues.hinhAnh);
+      }
+
+      console.log("Sending FormData to update API...");
+      const response = await updateMovieApi(formData);
+      console.log("API Response:", response);
+
+      alert("Cập nhật phim thành công!");
+      navigate("/admin/movie-management");
+    } catch (error) {
+      console.error("Error updating movie:", error);
+
+      // Xử lý lỗi cụ thể
+      let errorMessage = "Có lỗi xảy ra khi cập nhật phim";
 
       if (error.response?.data?.content) {
-        errorMessage += `: ${error.response.data.content}`;
+        const errorContent = error.response.data.content;
+        if (typeof errorContent === "string") {
+          errorMessage = errorContent;
+        } else if (errorContent.message) {
+          errorMessage = errorContent.message;
+        }
       } else if (error.response?.data?.message) {
-        errorMessage += `: ${error.response.data.message}`;
+        errorMessage = error.response.data.message;
       } else if (error.message) {
-        errorMessage += `: ${error.message}`;
+        errorMessage = error.message;
+      }
+
+      // Kiểm tra lỗi trùng tên phim
+      if (
+        errorMessage.toLowerCase().includes("tồn tại") ||
+        errorMessage.toLowerCase().includes("exist") ||
+        errorMessage.toLowerCase().includes("duplicate")
+      ) {
+        errorMessage =
+          "Tên phim đã tồn tại trong hệ thống. Vui lòng chọn tên khác.";
+      }
+
+      // Xử lý lỗi 403 cụ thể
+      if (
+        errorMessage.includes("403") ||
+        errorMessage.includes("quyền truy cập")
+      ) {
+        const confirmRefresh = window.confirm(
+          "Lỗi quyền truy cập (403). Token có thể đã hết hạn.\n\n" +
+            "Bạn có muốn kiểm tra token và đăng nhập lại không?"
+        );
+        if (confirmRefresh) {
+          navigate("/admin/token-checker");
+          return;
+        }
       }
 
       alert(errorMessage);
@@ -185,12 +269,58 @@ export default function AddMovie() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!movie) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg
+            className="w-8 h-8 text-red-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+            />
+          </svg>
+        </div>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          Không tìm thấy phim
+        </h3>
+        <p className="text-gray-600 mb-4">
+          Phim bạn đang tìm kiếm không tồn tại hoặc đã bị xóa.
+        </p>
+        <button
+          onClick={() => navigate("/admin/movie-management")}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          Quay lại danh sách phim
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Thêm phim mới</h1>
-        <p className="text-gray-600">Tạo phim mới cho hệ thống Galaxy Cinema</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Chỉnh sửa phim
+        </h1>
+        <p className="text-gray-600">
+          Cập nhật thông tin phim: {movie.tenPhim}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -219,6 +349,11 @@ export default function AddMovie() {
                   {errors.tenPhim.message}
                 </p>
               )}
+              {/* Hiển thị tên phim hiện tại */}
+              <p className="mt-1 text-xs text-gray-500">
+                Tên phim hiện tại:{" "}
+                <span className="font-medium">{movie?.tenPhim}</span>
+              </p>
             </div>
 
             {/* Trailer URL */}
@@ -232,7 +367,7 @@ export default function AddMovie() {
                 className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                   errors.trailer ? "border-red-300" : "border-gray-300"
                 }`}
-                placeholder="https://www.youtube.com/watch?v=..."
+                placeholder="https://www.youtube.com/watch?v..."
               />
               {errors.trailer && (
                 <p className="mt-1 text-sm text-red-600">
@@ -363,7 +498,7 @@ export default function AddMovie() {
             {/* Upload Area */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Tải lên poster phim
+                Tải lên poster phim mới
               </label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
                 <input
@@ -460,20 +595,17 @@ export default function AddMovie() {
         <div className="flex justify-end space-x-4">
           <button
             type="button"
-            onClick={() => {
-              reset();
-              setImagePreview(null);
-            }}
+            onClick={() => navigate("/admin/movie-management")}
             className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
           >
-            Làm mới
+            Hủy bỏ
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {isSubmitting ? "Đang xử lý..." : "Thêm phim"}
+            {isSubmitting ? "Đang xử lý..." : "Cập nhật phim"}
           </button>
         </div>
       </form>
