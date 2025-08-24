@@ -20,6 +20,8 @@ import Placeholder from "../pages/Admin/Placeholder/placeholder.jsx";
 import UserInfoDebug from "../components/UserInfoDebug.jsx";
 import CreateShowtime from "../pages/Admin/CreateShowtime/create_showtime.jsx";
 import ShowtimeManagement from "../pages/Admin/ShowtimeManagement/showtime_management.jsx";
+import TheaterManagement from "../pages/Admin/TheaterManagement/theater_management.jsx";
+import AddTheater from "../pages/Admin/TheaterManagement/AddTheater/add_theater.jsx";
 
 import { Route } from "react-router-dom";
 
@@ -108,12 +110,11 @@ const routes = [
       },
       {
         path: "theater-management",
-        element: () => (
-          <Placeholder
-            title="Quản lý rạp chiếu"
-            description="Quản lý hệ thống rạp chiếu và phòng chiếu"
-          />
-        ),
+        element: TheaterManagement,
+      },
+      {
+        path: "theater-management/add-theater/:maCumRap",
+        element: AddTheater,
       },
       {
         path: "showtime-management",

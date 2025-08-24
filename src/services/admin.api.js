@@ -931,3 +931,91 @@ export const deleteShowtimeApi = async (maLichChieu) => {
     throw error;
   }
 };
+
+// ===== THEATER MANAGEMENT APIs =====
+
+// Lấy thông tin chi tiết phòng chiếu (nếu có API)
+export const getTheaterDetailsApi = async (maCumRap) => {
+  try {
+    console.log("🎬 Fetching theater details for cluster:", maCumRap);
+    // Giả lập API call - có thể thay thế bằng API thực tế sau
+    const mockTheaters = [
+      {
+        maPhong: "P001",
+        tenPhong: "Phòng 1",
+        soGhe: 120,
+        trangThai: "Hoạt động",
+        loaiPhong: "2D",
+        maCumRap: maCumRap,
+      },
+      {
+        maPhong: "P002",
+        tenPhong: "Phòng 2",
+        soGhe: 80,
+        trangThai: "Hoạt động",
+        loaiPhong: "3D",
+        maCumRap: maCumRap,
+      },
+      {
+        maPhong: "P003",
+        tenPhong: "Phòng 3",
+        soGhe: 150,
+        trangThai: "Bảo trì",
+        loaiPhong: "IMAX",
+        maCumRap: maCumRap,
+      },
+    ];
+    return mockTheaters;
+  } catch (error) {
+    console.error("❌ Error fetching theater details:", error);
+    throw error;
+  }
+};
+
+// Thêm phòng chiếu mới (nếu có API)
+export const addTheaterApi = async (theaterData) => {
+  try {
+    console.log("🎬 Adding new theater:", theaterData);
+    // Giả lập API call - có thể thay thế bằng API thực tế sau
+    const newTheater = {
+      maPhong: `P${Date.now()}`,
+      ...theaterData,
+      trangThai: "Hoạt động",
+    };
+    console.log("✅ Theater added:", newTheater);
+    return newTheater;
+  } catch (error) {
+    console.error("❌ Error adding theater:", error);
+    throw error;
+  }
+};
+
+// Cập nhật thông tin phòng chiếu (nếu có API)
+export const updateTheaterApi = async (maPhong, theaterData) => {
+  try {
+    console.log("🎬 Updating theater:", maPhong, theaterData);
+    // Giả lập API call - có thể thay thế bằng API thực tế sau
+    const updatedTheater = {
+      maPhong,
+      ...theaterData,
+    };
+    console.log("✅ Theater updated:", updatedTheater);
+    return updatedTheater;
+  } catch (error) {
+    console.error("❌ Error updating theater:", error);
+    throw error;
+  }
+};
+
+// Xóa phòng chiếu (nếu có API)
+export const deleteTheaterApi = async (maPhong) => {
+  try {
+    console.log("🎬 Deleting theater:", maPhong);
+    // Giả lập API call - có thể thay thế bằng API thực tế sau
+    console.log("✅ Theater deleted:", maPhong);
+    return { success: true, message: "Xóa phòng chiếu thành công" };
+  } catch (error) {
+    console.error("❌ Error deleting theater:", error);
+    throw error;
+  }
+};

@@ -70,6 +70,19 @@ export default function CreateShowtime() {
 
   const watchedSystem = watch("maHeThongRap");
 
+  // Helper function to format datetime to dd/MM/yyyy hh:mm:ss
+  const formatDateTime = (dateTimeString) => {
+    const date = new Date(dateTimeString);
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
+
+    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -150,6 +163,13 @@ export default function CreateShowtime() {
       setSubmitting(true);
       console.log("Form values:", values);
 
+      // Check authentication
+      const userInfo = localStorage.getItem("userInfo");
+      if (!userInfo) {
+        alert("Vui lòng đăng nhập để tạo lịch chiếu!");
+        return;
+      }
+
       // Validate datetime is in the future
       const selectedDateTime = new Date(values.ngayChieuGioChieu);
       const now = new Date();
@@ -159,14 +179,28 @@ export default function CreateShowtime() {
       }
 
       // Format data for API
+      // API Specification: https://movienew.cybersoft.edu.vn/api/QuanLyDatVe/TaoLichChieu
+      // Model: { maPhim: number, ngayChieuGioChieu: string, maRap: string, giaVe: number }
+
+      // Format datetime to dd/MM/yyyy hh:mm:ss format
+      const formattedDateTime = formatDateTime(values.ngayChieuGioChieu);
+
       const showtimeData = {
         maPhim: parseInt(maPhim),
-        ngayChieuGioChieu: values.ngayChieuGioChieu,
-        maRap: parseInt(values.maCumRap),
+        ngayChieuGioChieu: formattedDateTime, // Format: dd/MM/yyyy hh:mm:ss
+        maRap: values.maCumRap, // Keep as string as per API specification
         giaVe: parseInt(values.giaVe),
       };
 
+      console.log("Original datetime input:", values.ngayChieuGioChieu);
+      console.log("Formatted datetime:", formattedDateTime);
       console.log("Formatted showtime data:", showtimeData);
+      console.log("Data types:", {
+        maPhim: typeof showtimeData.maPhim,
+        ngayChieuGioChieu: typeof showtimeData.ngayChieuGioChieu,
+        maRap: typeof showtimeData.maRap,
+        giaVe: typeof showtimeData.giaVe,
+      });
 
       console.log("Sending showtime data:", showtimeData);
       const response = await createShowtimeApi(showtimeData);
@@ -192,6 +226,8 @@ export default function CreateShowtime() {
       }, 2000);
     } catch (error) {
       console.error("Error creating showtime:", error);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
 
       let errorMessage = "Có lỗi xảy ra khi tạo lịch chiếu";
 
@@ -204,6 +240,16 @@ export default function CreateShowtime() {
         }
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
+      } else if (error.response?.status === 400) {
+        errorMessage = "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
+      } else if (error.response?.status === 401) {
+        errorMessage = "Không có quyền truy cập. Vui lòng đăng nhập lại.";
+      } else if (error.response?.status === 403) {
+        errorMessage = "Không có quyền tạo lịch chiếu.";
+      } else if (error.response?.status === 404) {
+        errorMessage = "Không tìm thấy phim hoặc rạp chiếu.";
+      } else if (error.response?.status === 500) {
+        errorMessage = "Lỗi server. Vui lòng thử lại sau.";
       } else if (error.message) {
         errorMessage = error.message;
       }
